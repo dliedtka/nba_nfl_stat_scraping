@@ -4,6 +4,10 @@ import requests
 from bs4 import BeautifulSoup
 import parsers
 
+
+table_columns = {}
+
+
 for year in range(2000, 2023):
     #print (year)
 
@@ -31,11 +35,15 @@ for year in range(2000, 2023):
         name = name[:-4]
         print (name, link)
 
-        # temporarily limit to one player
+        # player page
         page = requests.get(f"https://www.pro-football-reference.com{link}")
         #print (page.status_code)
-
         player_soup = BeautifulSoup(page.content, 'html.parser')
+
+        # TODO 
+        # get table header row for different stat tables
+        table_columns = parsers.parse_table_columns(table_columns, player_soup)
+        print (table_columns)
 
         # season by season stats
         career_stats = parsers.parse_career_stats(player_soup)
