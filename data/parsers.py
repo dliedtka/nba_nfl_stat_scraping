@@ -5,12 +5,13 @@ from bs4 import Comment
 
 
 # skip columns for certain tables
-skipped_columns = {
-    "defense" : [2, 3, 4, 25], # skip tm, pos, no., awards
-}
+# skipping AV for now because it only appears in one table, the first on every page, and it's a stat created by pro football reference
+skipped_columns = ["Tm", "Pos", "No.", "AV", "Awards"]
 
 
 def parse_header_row(table, table_type):
+    '''
+    '''
     for row in table.find_all("tr"):
         prepend = None
         if "class=\"over_header\"" in str(row):
@@ -32,8 +33,8 @@ def parse_header_row(table, table_type):
             headers = []
             counter = 0
             for col in row.find_all("th"):
-                if counter not in skipped_columns[table_type]:
-                    text = str(col).split(">")[1].split("</")[0]
+                text = str(col).split(">")[1].split("</")[0]
+                if text not in skipped_columns:
                     if prepend is not None and prepend[counter] is not None:
                         text = f"{prepend[counter]} {text}"
                     if "data-tip" in str(col):
@@ -47,79 +48,159 @@ def parse_header_row(table, table_type):
     return None
 
 
-def parse_table_columns(table_columns, player_soup):
+def parse_table_column_headers(table_column_headers, player_soup):
     '''
     Get column names and descriptions for table types we haven't seen yet.
     '''
-    if "defense" not in table_columns:
-        defense_tables = player_soup.find_all("table", class_="stats_table", id="defense")
-        if defense_tables is not None:
-            table_columns["defense"] = parse_header_row(defense_tables[0], "defense")
-    return table_columns
+    if "defense_fumbles" not in table_column_headers.keys():
+        defense_fumbles_tables = player_soup.find_all("table", class_="stats_table", id="defense")
+        if len(defense_fumbles_tables) != 0:
+            table_column_headers["defense_fumbles"] = parse_header_row(defense_fumbles_tables[0], "defense_fumbles")
+    if "returns" not in table_column_headers.keys():
+        returns_tables = player_soup.find_all("table", class_="stats_table", id="returns")
+        if len(returns_tables) != 0:
+            table_column_headers["returns"] = parse_header_row(returns_tables[0], "returns")
+    if "receiving_rushing" not in table_column_headers.keys():
+        receiving_rushing_tables = player_soup.find_all("table", class_="stats_table", id="receiving_and_rushing")
+        if len(receiving_rushing_tables) != 0:
+            table_column_headers["receiving_rushing"] = parse_header_row(receiving_rushing_tables[0], "receiving_rushing")
+    if "rushing_receiving" not in table_column_headers.keys():
+        rushing_receiving_tables = player_soup.find_all("table", class_="stats_table", id="rushing_and_receiving")
+        if len(rushing_receiving_tables) != 0:
+            table_column_headers["rushing_receiving"] = parse_header_row(rushing_receiving_tables[0], "rushing_receiving") 
+    if "passing" not in table_column_headers.keys():
+        passing_tables = player_soup.find_all("table", class_="stats_table", id="passing")
+        if len(passing_tables) != 0:
+            table_column_headers["passing"] = parse_header_row(passing_tables[0], "passing")  
+    if "kicking" not in table_column_headers.keys():
+        kicking_tables = player_soup.find_all("table", class_="stats_table", id="kicking")
+        if len(kicking_tables) != 0:
+            table_column_headers["kicking"] = parse_header_row(kicking_tables[0], "kicking")        
+    return table_column_headers
 
 
-def init_dict(my_dict):
-    if my_dict is None:
-        return {}
-    else:
-        return my_dict
-
-
-def parse_defense(table):
+def index_skipped_columns(table):
     '''
-    Note: QBHits recorded since 2006
-    Will need to handle 2 team years, just grab total and skip if no year
-    Could make a mapping of counter to stat name to make more readable
+    Need to set which indices to skip each time (since AV could be in any but only 1 table)
     '''
+    skipped_column_indices = []
+    for row in table.find_all("tr"):
+        if ">Year<" in str(row):
+            counter = 0
+            for col in row.find_all("th"):
+                text = str(col).split(">")[1].split("</")[0]
+                if text in skipped_columns:
+                    skipped_column_indices.append(counter)
+                counter += 1
+            return skipped_column_indices
+    return None
+
+
+def parse_table(table_type, table):
+    '''
+    '''
+    # determine columns to skip
+    skipped_column_indices = index_skipped_columns(table)
+
     stats = []
     rows = table.find_all("tr", class_="full_table")
     for row in rows:
+        
+        # skip missed seasons (injury, etc.)
+        if "missed season" in str(row).lower():
+            continue
         # get year
         year_col = str(row.find_all("th")[0]).split("\">")[2].split("</")[0]
+        # skip partial seasons (when played on 2+ teams, we just take the whole combined season)
         if year_col == "":
             continue 
         year = int(year_col)
         year_stats = [float(year)]
-        # skip team, position, award; everything else can be floats
+        
+        # get stat
         for counter, col in enumerate(row.find_all("td")):
-            if counter + 1 in skipped_columns["defense"]:
+            # skip team, position, award
+            if counter + 1 in skipped_column_indices:
                 continue
+            # everything else can be parsed to floats
             else:
-                stat = str(col).split("\">")[1].split("</")[0].replace("<strong>", "")
+                stat = str(col).split("\">")[1].split("</")[0].replace("<strong>", "").replace("%", "")
                 if stat == "":
-                    if counter + 1 == 22 and year < 2006:
-                        stat = None 
-                    else:
-                        stat = float(0)
+                    stat = None
                 else:
                     stat = float(stat)
                 year_stats.append(stat)
+        
         stats.append(tuple(year_stats))
+
     return stats
 
 
-def parse_career_stats(player_soup):
+def parse_career_stats(player_soup, verbose=False):
     '''
     TODO: account for missed season, skip row
     '''
-    stats = None
+
+    stats = {}
     
     # defense & fumbles 
-    defense_tables = player_soup.find_all("table", class_="stats_table", id="defense")
-    if defense_tables is not None:
-        stats = init_dict(stats)
-        stats["defense"] = parse_defense(defense_tables[0])
+    defense_fumbles_tables = player_soup.find_all("table", class_="stats_table", id="defense")
+    if len(defense_fumbles_tables) != 0:
+        stats["defense_fumbles"] = parse_table("defense_fumbles", defense_fumbles_tables[0])
     
-    # passing
-    # rushing/receiving
     # kick/punt return
+    returns_tables = player_soup.find_all("table", class_="stats_table", id="returns")
+    if len(returns_tables) != 0:
+        stats["returns"] = parse_table("returns", returns_tables[0])
+    
+    # receiving/rushing
+    receiving_rushing_tables = player_soup.find_all("table", class_="stats_table", id="receiving_and_rushing")
+    if len(receiving_rushing_tables) != 0:
+        stats["receiving_rushing"] = parse_table("receiving_rushing", receiving_rushing_tables[0])
+
+    # rushing/receiving
+    rushing_receiving_tables = player_soup.find_all("table", class_="stats_table", id="rushing_and_receiving")
+    if len(rushing_receiving_tables) != 0:
+        stats["rushing_receiving"] = parse_table("rushing_receiving", rushing_receiving_tables[0])
+
+    # passing
+    passing_tables = player_soup.find_all("table", class_="stats_table", id="passing")
+    if len(passing_tables) != 0:
+        stats["passing"] = parse_table("passing", passing_tables[0])
+
     # kicking/punting
+    kicking_tables = player_soup.find_all("table", class_="stats_table", id="kicking")
+    if len(kicking_tables) != 0:
+        stats["kicking"] = parse_table("kicking", kicking_tables[0])
+
+    # don't think any other table types
     
-    # don't think any others
+    if verbose:
+        if "defense_fumbles" in stats.keys():
+            print ("DEFENSE & FUMBLES")
+            for year in stats["defense_fumbles"]:
+                print (year)
+        if "returns" in stats.keys():
+            print ("KICK & PUNT RETURNS")
+            for year in stats["returns"]:
+                print (year)
+        if "receiving_rushing" in stats.keys():
+            print ("RECEIVING & RUSHING")
+            for year in stats["receiving_rushing"]:
+                print (year)
+        if "rushing_receiving" in stats.keys():
+            print ("RUSHING & RECEIVING")
+            for year in stats["rushing_receiving"]:
+                print (year)
+        if "passing" in stats.keys():
+            print ("PASSING")
+            for year in stats["passing"]:
+                print (year)
+        if "kicking" in stats.keys():
+            print ("KICKING")
+            for year in stats["kicking"]:
+                print (year)
     
-    for year in stats["defense"]:
-        print (year)
-    exit()
     return stats
 
 
@@ -132,7 +213,7 @@ def parse_birth_year(player_soup):
     return None
 
 
-def parse_combine(player_soup):
+def parse_combine(player_soup, verbose=False):
     # these are commented out by default
     comments = player_soup.find_all(string=lambda text: isinstance(text, Comment))
     combine_comment = None
@@ -166,6 +247,11 @@ def parse_combine(player_soup):
     if birth_year is None:
         return None
     combine_stats.insert(1, float(combine_year - birth_year))
+
+    # position, combine age, height, weight, 40, bench, broad jump, shuttle, cone, vertical
+    if verbose:
+        print ("COMBINE")
+        print (tuple(combine_stats))
 
     return tuple(combine_stats)
     
