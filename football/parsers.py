@@ -6,7 +6,8 @@ from bs4 import Comment
 
 # skip columns for certain tables
 # skipping AV for now because it only appears in one table, the first on every page, and it's a stat created by pro football reference
-skipped_columns = ["Tm", "Pos", "No.", "AV", "Awards"]
+# skipping QBRec for now
+skipped_columns = ["Tm", "Pos", "No.", "AV", "Awards", "QBrec"]
 
 
 def parse_header_row(table, table_type):

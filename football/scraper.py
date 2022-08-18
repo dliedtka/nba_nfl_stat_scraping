@@ -1,17 +1,28 @@
 #!/usr/bin/env python3
 
+import os
+import pickle
 import requests
 from bs4 import BeautifulSoup
 import parsers
 
 
 def scrape(verbose=False):
-    # TODO: try to load dataset
+    # try to load dataset
+    cur_dir = os.path.dirname(os.path.abspath(__file__))
+    if os.path.exists(f"{cur_dir}/data.pkl"):
+        with open(f"{cur_dir}/data.pkl", "rb") as fin:
+            data = pickle.load(fin)
+    else:
+        data = {}
+        data["stats"] = {}
 
     table_column_headers = {}
 
     for year in range(2000, 2023):
-        #print (year)
+        if verbose:
+            print (year)
+            print ("")
 
         page = requests.get(f"https://www.pro-football-reference.com/years/{year}/draft.htm")
         #print (page.status_code)
@@ -43,9 +54,11 @@ def scrape(verbose=False):
             player_soup = BeautifulSoup(page.content, 'html.parser')
 
             # TODO: check player, link (2 Adrian Petersons) to make sure not already in dataset 
+            if (name, link) in data["stats"].keys():
+                continue
 
             # get table header row for different stat tables
-            table_column_headers = parsers.parse_table_column_headers(table_column_headers, player_soup)
+            data["table_column_headers"] = parsers.parse_table_column_headers(table_column_headers, player_soup)
             
             # season by season stats
             career_stats = parsers.parse_career_stats(player_soup, verbose=verbose)
@@ -57,16 +70,49 @@ def scrape(verbose=False):
             if combine_data is None:
                 continue 
 
+            data["stats"][(name, link)] = {}
+            data["stats"][(name, link)]["career_tables"] = career_stats
+            data["stats"][(name, link)]["combine"] = combine_data
+
             if verbose:
                 print ("")
             # temporarily limit to one player
             #exit()
 
-            # TODO: write dataset
+            # write dataset
+            with open(f"{cur_dir}/data.pkl", "wb") as fout:
+                pickle.dump(data, fout)
 
         # temporarily limit to one year
-        exit()
+        #exit()
+
+
+def convert():
+    '''
+    Combine tables so all stats are in one dictionary; do this for headers too.
+    '''
+    cur_dir = os.path.dirname(os.path.abspath(__file__))
+    with open(f"{cur_dir}/data.pkl", "rb") as fin:
+        data = pickle.load(fin)
+
+    # headers
+
+    # stats
+    for player in data["stats"].keys():
+        data["stats"][player]["career"]
+        for table in data["stats"][player]["career_tables"].keys():
+            # receiving_rushing/rushing_receiving are same tables but in different orders
+            if table != "rushing_receiving":
+                prepend = table 
+            else:
+                prepend = "receiving_rushing"
+
+    # delete
+
+    #with open(f"{cur_dir}/data.pkl", "wb") as fout:
+    #    pickle.dump(data, fout)
 
 
 if __name__ == "__main__":
-    scrape(verbose=True)
+    #scrape(verbose=True)
+    convert()
