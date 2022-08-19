@@ -149,8 +149,8 @@ def convert(verbose=False):
 
     # stats
     for player in data["stats"]:
-        data["stats"][player]["career"] = {}
         if "career_tables" in data["stats"][player]:
+            data["stats"][player]["career"] = {}
             for table in data["stats"][player]["career_tables"]:
                 # receiving_rushing/rushing_receiving are same tables but in different orders
                 if table != "rushing_receiving":
