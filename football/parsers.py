@@ -6,8 +6,9 @@ from bs4 import Comment
 
 # skip columns for certain tables
 # skipping AV for now because it only appears in one table, the first on every page, and it's a stat created by pro football reference
-# skipping QBRec for now
-skipped_columns = ["Tm", "Pos", "No.", "AV", "Awards", "QBrec"]
+# skipping QBRec for now because don't want to add code to handle one string
+# skipping QBR for now because isn't part of the table for anyone who didn't play past 2006
+skipped_columns = ["Tm", "Pos", "No.", "AV", "Awards", "QBrec", "QBR"]
 
 
 def parse_header_row(table, table_type):
@@ -53,27 +54,27 @@ def parse_table_column_headers(table_column_headers, player_soup):
     '''
     Get column names and descriptions for table types we haven't seen yet.
     '''
-    if "defense_fumbles" not in table_column_headers.keys():
+    if "defense_fumbles" not in table_column_headers:
         defense_fumbles_tables = player_soup.find_all("table", class_="stats_table", id="defense")
         if len(defense_fumbles_tables) != 0:
             table_column_headers["defense_fumbles"] = parse_header_row(defense_fumbles_tables[0], "defense_fumbles")
-    if "returns" not in table_column_headers.keys():
+    if "returns" not in table_column_headers:
         returns_tables = player_soup.find_all("table", class_="stats_table", id="returns")
         if len(returns_tables) != 0:
             table_column_headers["returns"] = parse_header_row(returns_tables[0], "returns")
-    if "receiving_rushing" not in table_column_headers.keys():
+    if "receiving_rushing" not in table_column_headers:
         receiving_rushing_tables = player_soup.find_all("table", class_="stats_table", id="receiving_and_rushing")
         if len(receiving_rushing_tables) != 0:
             table_column_headers["receiving_rushing"] = parse_header_row(receiving_rushing_tables[0], "receiving_rushing")
-    if "rushing_receiving" not in table_column_headers.keys():
+    if "rushing_receiving" not in table_column_headers:
         rushing_receiving_tables = player_soup.find_all("table", class_="stats_table", id="rushing_and_receiving")
         if len(rushing_receiving_tables) != 0:
             table_column_headers["rushing_receiving"] = parse_header_row(rushing_receiving_tables[0], "rushing_receiving") 
-    if "passing" not in table_column_headers.keys():
+    if "passing" not in table_column_headers:
         passing_tables = player_soup.find_all("table", class_="stats_table", id="passing")
         if len(passing_tables) != 0:
             table_column_headers["passing"] = parse_header_row(passing_tables[0], "passing")  
-    if "kicking" not in table_column_headers.keys():
+    if "kicking" not in table_column_headers:
         kicking_tables = player_soup.find_all("table", class_="stats_table", id="kicking")
         if len(kicking_tables) != 0:
             table_column_headers["kicking"] = parse_header_row(kicking_tables[0], "kicking")        
@@ -177,27 +178,27 @@ def parse_career_stats(player_soup, verbose=False):
     # don't think any other table types
     
     if verbose:
-        if "defense_fumbles" in stats.keys():
+        if "defense_fumbles" in stats:
             print ("DEFENSE & FUMBLES")
             for year in stats["defense_fumbles"]:
                 print (year)
-        if "returns" in stats.keys():
+        if "returns" in stats:
             print ("KICK & PUNT RETURNS")
             for year in stats["returns"]:
                 print (year)
-        if "receiving_rushing" in stats.keys():
+        if "receiving_rushing" in stats:
             print ("RECEIVING & RUSHING")
             for year in stats["receiving_rushing"]:
                 print (year)
-        if "rushing_receiving" in stats.keys():
+        if "rushing_receiving" in stats:
             print ("RUSHING & RECEIVING")
             for year in stats["rushing_receiving"]:
                 print (year)
-        if "passing" in stats.keys():
+        if "passing" in stats:
             print ("PASSING")
             for year in stats["passing"]:
                 print (year)
-        if "kicking" in stats.keys():
+        if "kicking" in stats:
             print ("KICKING")
             for year in stats["kicking"]:
                 print (year)
