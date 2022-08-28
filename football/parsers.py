@@ -66,10 +66,6 @@ def parse_table_column_headers(table_column_headers, player_soup):
         receiving_rushing_tables = player_soup.find_all("table", class_="stats_table", id="receiving_and_rushing")
         if len(receiving_rushing_tables) != 0:
             table_column_headers["receiving_rushing"] = parse_header_row(receiving_rushing_tables[0], "receiving_rushing")
-    if "rushing_receiving" not in table_column_headers:
-        rushing_receiving_tables = player_soup.find_all("table", class_="stats_table", id="rushing_and_receiving")
-        if len(rushing_receiving_tables) != 0:
-            table_column_headers["rushing_receiving"] = parse_header_row(rushing_receiving_tables[0], "rushing_receiving") 
     if "passing" not in table_column_headers:
         passing_tables = player_soup.find_all("table", class_="stats_table", id="passing")
         if len(passing_tables) != 0:
@@ -135,75 +131,88 @@ def parse_table(table_type, table):
         
         stats.append(tuple(year_stats))
 
-    return stats
+    return tuple(stats)
+
+
+def none_list(length):
+    '''
+    '''
+    retlist = []
+    for _ in range(length):
+        retlist.append(None)
+    return retlist
 
 
 def parse_career_stats(player_soup, verbose=False):
     '''
-    TODO: account for missed season, skip row
     '''
-
-    stats = {}
-    
     # defense & fumbles 
     defense_fumbles_tables = player_soup.find_all("table", class_="stats_table", id="defense")
     if len(defense_fumbles_tables) != 0:
-        stats["defense_fumbles"] = parse_table("defense_fumbles", defense_fumbles_tables[0])
+        defense_fumbles = parse_table("defense_fumbles", defense_fumbles_tables[0])
+    else:
+        defense_fumbles = None
     
     # kick/punt return
     returns_tables = player_soup.find_all("table", class_="stats_table", id="returns")
     if len(returns_tables) != 0:
-        stats["returns"] = parse_table("returns", returns_tables[0])
-    
+        returns = parse_table("returns", returns_tables[0])
+    else:
+        returns = None
+
+    # can have a receiving/rushing table or a rushing/receiving table, but not both
     # receiving/rushing
     receiving_rushing_tables = player_soup.find_all("table", class_="stats_table", id="receiving_and_rushing")
     if len(receiving_rushing_tables) != 0:
-        stats["receiving_rushing"] = parse_table("receiving_rushing", receiving_rushing_tables[0])
-
-    # rushing/receiving
-    rushing_receiving_tables = player_soup.find_all("table", class_="stats_table", id="rushing_and_receiving")
-    if len(rushing_receiving_tables) != 0:
-        stats["rushing_receiving"] = parse_table("rushing_receiving", rushing_receiving_tables[0])
+        receiving_rushing = parse_table("receiving_rushing", receiving_rushing_tables[0])
+    else:
+        # rushing/receiving
+        rushing_receiving_tables = player_soup.find_all("table", class_="stats_table", id="rushing_and_receiving")
+        if len(rushing_receiving_tables) != 0:
+            rushing_receiving = parse_table("rushing_receiving", rushing_receiving_tables[0])
+            # need to convert to receiving/rushing
+            receiving_rushing = []
+            for year in rushing_receiving:
+                receiving_rushing.append(year[:4] + year[12:23] + year[4:12] + year[23:])
+        else:
+            receiving_rushing = None
 
     # passing
     passing_tables = player_soup.find_all("table", class_="stats_table", id="passing")
     if len(passing_tables) != 0:
-        stats["passing"] = parse_table("passing", passing_tables[0])
+        passing = parse_table("passing", passing_tables[0])
+    else:
+        passing = None
 
     # kicking/punting
     kicking_tables = player_soup.find_all("table", class_="stats_table", id="kicking")
     if len(kicking_tables) != 0:
-        stats["kicking"] = parse_table("kicking", kicking_tables[0])
+        kicking = parse_table("kicking", kicking_tables[0])
+    else:
+        kicking = None
 
-    # don't think any other table types
+    # could also collect offensive line penalties table?
+
+    if defense_fumbles is None and returns is None and receiving_rushing is None and passing is None and kicking is None:
+        return None
+
+    # combine all tables into one
+    #tables = [defense_fumbles, returns, receiving_rushing, passing, kicking]
     
     if verbose:
-        if "defense_fumbles" in stats:
-            print ("DEFENSE & FUMBLES")
-            for year in stats["defense_fumbles"]:
-                print (year)
-        if "returns" in stats:
-            print ("KICK & PUNT RETURNS")
-            for year in stats["returns"]:
-                print (year)
-        if "receiving_rushing" in stats:
-            print ("RECEIVING & RUSHING")
-            for year in stats["receiving_rushing"]:
-                print (year)
-        if "rushing_receiving" in stats:
-            print ("RUSHING & RECEIVING")
-            for year in stats["rushing_receiving"]:
-                print (year)
-        if "passing" in stats:
-            print ("PASSING")
-            for year in stats["passing"]:
-                print (year)
-        if "kicking" in stats:
-            print ("KICKING")
-            for year in stats["kicking"]:
-                print (year)
-    
-    return stats
+        print ("CAREER")
+        print ("DEFENSE & FUMBLES")
+        print (defense_fumbles)
+        print ("RETURNS")
+        print (returns)
+        print ("RECEIVING & RUSHING")
+        print (receiving_rushing)
+        print ("PASSINIG")
+        print (passing)
+        print ("KICKING")
+        print (kicking)
+        
+    return (defense_fumbles, returns, receiving_rushing, passing, kicking)
 
 
 def parse_birth_year(player_soup):
