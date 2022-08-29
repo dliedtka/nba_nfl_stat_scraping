@@ -213,8 +213,4 @@ def scrape(verbose=False, save_frequency=2):
 
 if __name__ == "__main__":
     scrape(verbose=True, save_frequency=1)
-    # will want to create another python script to load data and dynamically transform to more usable format
-    # create stats like years experience
-    # (currently in backup)
-
-    # if it isn't more efficient, could have a dictionary and store by stat
+    
